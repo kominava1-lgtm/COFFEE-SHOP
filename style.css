@@ -1,0 +1,1054 @@
+/* =====================================================
+   COLOR VARIABLES
+   These are our "coffee vibes" colors, defined once here
+   so we can reuse them everywhere with var(--name-here).
+   If you want to change the whole color scheme, this is
+   the only place you need to edit.
+   ===================================================== */
+:root {
+  --color-espresso: #2B1B14;       /* dark brown, used for backgrounds and buttons */
+  --color-espresso-light: #3D2818; /* slightly lighter dark brown */
+  --color-crema: #F3E6CC;          /* light cream, used for text on dark backgrounds */
+  --color-paper: #FAF3E4;          /* very light cream, the page background */
+  --color-rust: #B4522F;           /* orange-brown accent color, used for buttons */
+  --color-rust-dark: #93401F;      /* darker version of rust, used for hover states */
+  --color-gold: #D9A441;           /* gold accent color, used for highlights */
+  --color-sage: #5C6B47;           /* green accent color, used for "open" tags */
+  --color-ink: #1E1410;            /* almost-black, used for regular text */
+  --color-border: rgba(43, 27, 20, 0.12); /* a light, see-through border color */
+}
+
+/* =====================================================
+   RESET / BASE STYLES
+   These rules remove default browser spacing and set up
+   the fonts and background for the whole page.
+   ===================================================== */
+* {
+  box-sizing: border-box; /* makes width/height math easier to predict */
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth; /* smooth scrolling when clicking links like #nearby */
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: 'Inter', sans-serif;
+  line-height: 1.5;
+}
+
+img, svg {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Centers content and keeps it from getting too wide on big screens */
+.page-width {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* Makes the keyboard focus outline visible and on-brand */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--color-rust);
+  outline-offset: 3px;
+}
+
+/* =====================================================
+   HEADER / NAVBAR
+   ===================================================== */
+header {
+  position: sticky;   /* stays at the top of the screen when you scroll */
+  top: 0;
+  z-index: 50;
+  background: rgba(250, 243, 228, 0.88);
+  backdrop-filter: blur(8px); /* blurs whatever scrolls underneath it */
+  border-bottom: 1px solid var(--color-border);
+}
+
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.logo-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-rust);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-circle-small {
+  width: 24px;
+  height: 24px;
+}
+
+/* The row of text links: Home, Locate Cafe, About Us */
+.nav-links {
+  display: flex;
+  gap: 32px;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.nav-links a {
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+
+.nav-links a:hover {
+  opacity: 1;
+}
+
+/* The dark pill-shaped button, e.g. "Open map" */
+.button-dark {
+  background: var(--color-espresso);
+  color: var(--color-crema);
+  padding: 10px 20px;
+  border-radius: 100px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.button-dark:hover {
+  background: var(--color-ink);
+}
+
+/* The orange pill-shaped button, e.g. "List your shop" */
+.button-rust {
+  background: var(--color-rust);
+  color: var(--color-crema);
+  border: none;
+  padding: 16px 30px;
+  border-radius: 100px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  display: inline-block;
+  transition: background 0.15s;
+}
+
+.button-rust:hover {
+  background: var(--color-gold);
+  color: var(--color-espresso);
+}
+
+/* -----------------------------------------------------
+   Responsive rule: on small screens (phones), hide the
+   normal nav links and "Open map" button, and instead
+   show the hamburger icon below.
+   ----------------------------------------------------- */
+@media (max-width: 800px) {
+  .nav-links {
+    display: none;
+  }
+  header .button-dark {
+    display: none;
+  }
+}
+
+/* =====================================================
+   HAMBURGER BUTTON (the 3-line icon)
+   Hidden on desktop, shown only on mobile.
+   ===================================================== */
+.hamburger-button {
+  display: none; /* hidden by default (desktop) */
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 800px) {
+  .hamburger-button {
+    display: flex; /* show it on mobile */
+  }
+}
+
+/* Make sure the mobile menu pieces never show up on desktop,
+   even before JavaScript runs. */
+@media (min-width: 801px) {
+  .hamburger-button,
+  .mobile-menu-overlay,
+  .mobile-menu-panel {
+    display: none !important;
+  }
+}
+
+/* =====================================================
+   MOBILE MENU (sidebar + blurred background)
+   ===================================================== */
+
+/* The see-through, blurred layer behind the sidebar */
+.mobile-menu-overlay {
+  position: fixed;
+  inset: 0; /* covers the entire screen: top, right, bottom, left = 0 */
+  z-index: 60;
+  background: rgba(43, 27, 20, 0.45);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  opacity: 0;              /* invisible by default */
+  pointer-events: none;    /* can't be clicked while invisible */
+  transition: opacity 0.25s ease;
+}
+
+/* When JavaScript adds the "is-open" class, fade the overlay in */
+.mobile-menu-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The sidebar panel that slides in from the right */
+.mobile-menu-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 50%;       /* half the screen width, as requested */
+  min-width: 240px; /* don't let it get too narrow on small phones */
+  background: var(--color-espresso);
+  color: var(--color-crema);
+  z-index: 70;
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%); /* starts pushed off-screen to the right */
+  transition: transform 0.3s ease;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+}
+
+/* When JavaScript adds the "is-open" class, slide it into view */
+.mobile-menu-panel.is-open {
+  transform: translateX(0);
+}
+
+@media (max-width: 420px) {
+  .mobile-menu-panel {
+    width: 72%; /* a little wider on very small phones so text isn't cramped */
+  }
+}
+
+.mobile-menu-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mobile-menu-close {
+  background: none;
+  border: none;
+  color: var(--color-crema);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.mobile-menu-links {
+  display: flex;
+  flex-direction: column;
+  margin-top: 36px;
+}
+
+.mobile-menu-links a {
+  padding: 16px 4px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(243, 230, 204, 0.14);
+}
+
+.mobile-menu-cta {
+  margin-top: 24px;
+  width: 100%;
+  text-align: center;
+}
+
+/* =====================================================
+   HERO SECTION (the big intro area)
+   ===================================================== */
+.hero-section {
+  padding: 76px 0 90px;
+}
+
+.hero-layout {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr; /* left column slightly wider than right */
+  gap: 56px;
+  align-items: center;
+}
+
+/* On smaller screens, stack the two hero columns instead of side-by-side */
+@media (max-width: 900px) {
+  .hero-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.small-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--color-rust-dark);
+  background: rgba(180, 82, 47, 0.1);
+  padding: 6px 12px;
+  border-radius: 100px;
+  margin-bottom: 22px;
+}
+
+.blinking-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-rust);
+  animation: blink 1.8s infinite;
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+
+h1 {
+  font-family: 'Fraunces', serif;
+  font-size: 3.2rem;
+  font-weight: 600;
+  line-height: 1.05;
+  margin-bottom: 22px;
+}
+
+/* On small screens, shrink the big headline so it fits better */
+@media (max-width: 700px) {
+  h1 {
+    font-size: 2.2rem;
+  }
+}
+
+h1 em {
+  font-style: italic;
+  color: var(--color-rust);
+  font-weight: 500;
+}
+
+.hero-description {
+  font-size: 1.08rem;
+  color: rgba(30, 20, 16, 0.72);
+  max-width: 480px;
+  margin-bottom: 34px;
+}
+
+.search-box {
+  background: var(--color-espresso);
+  border-radius: 18px;
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+  max-width: 520px;
+}
+
+.search-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--color-crema);
+  padding: 12px 14px;
+  font-size: 0.98rem;
+  font-family: 'Inter', sans-serif;
+}
+
+.search-box input::placeholder {
+  color: rgba(243, 230, 204, 0.45);
+}
+
+.search-box input:focus {
+  outline: none;
+}
+
+.locate-me-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-rust);
+  color: var(--color-crema);
+  border: none;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.locate-me-button:hover {
+  background: var(--color-rust-dark);
+}
+
+.stats-row {
+  display: flex;
+  gap: 34px;
+  margin-top: 38px;
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-number {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.7rem;
+}
+
+.stat-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: rgba(30, 20, 16, 0.5);
+  margin-top: 2px;
+}
+
+/* -----------------------------------------------------
+   The illustrated map card on the right side of the hero
+   ----------------------------------------------------- */
+.map-card {
+  background: var(--color-espresso);
+  border-radius: 26px;
+  padding: 22px;
+}
+
+.map-card-inner {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--color-espresso-light);
+  aspect-ratio: 1 / 1; /* keeps it perfectly square at any width */
+}
+
+.map-card-inner svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* The expanding, fading ring animation around each map pin */
+.pulsing-ring {
+  animation: pulse-ring 2.4s ease-out infinite;
+  transform-origin: center;
+}
+
+.pulsing-ring-delay-1 {
+  animation-delay: 0.6s; /* starts its animation a little later, for variety */
+}
+
+.pulsing-ring-delay-2 {
+  animation-delay: 1.2s;
+}
+
+@keyframes pulse-ring {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+.map-caption {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.map-you-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  color: var(--color-crema);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 6px 10px;
+  border-radius: 100px;
+}
+
+.map-radius-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  color: rgba(243, 230, 204, 0.55);
+}
+
+/* =====================================================
+   RADAR MAP
+   The default "map-card" visual: a scanning radar with
+   a fixed center dot for the user, and cafe dots that get
+   added once a search returns results.
+   ===================================================== */
+
+/* Positions the radar and its popup layer on top of each other */
+.radar-map-wrapper {
+  position: relative;
+  aspect-ratio: 1 / 1; /* stays square at any width */
+}
+
+.radar-map {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: radial-gradient(circle at center, var(--color-espresso-light) 0%, var(--color-espresso) 78%);
+}
+
+.radar-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* The two concentric range rings */
+.radar-ring {
+  fill: none;
+  stroke: rgba(243, 230, 204, 0.16);
+  stroke-width: 1.5;
+}
+
+/* The user's own pin: solid dot + pulsing ring, dead center */
+.radar-user-dot {
+  fill: var(--color-rust);
+  stroke: var(--color-crema);
+  stroke-width: 2;
+}
+
+.radar-user-ring {
+  fill: var(--color-rust);
+  opacity: 0.55;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: radar-user-pulse 2s ease-out infinite;
+}
+
+@keyframes radar-user-pulse {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(4.5);
+  }
+}
+
+/* Each found coffee shop, placed randomly around the center by script.js */
+.radar-cafe-dot {
+  fill: var(--color-gold);
+  stroke: var(--color-espresso);
+  stroke-width: 1.5;
+  cursor: pointer;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: radar-dot-in 0.4s ease-out backwards;
+}
+
+.radar-cafe-dot:hover {
+  transform: scale(1.25);
+}
+
+@keyframes radar-dot-in {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* -----------------------------------------------------
+   Popup shown when a cafe dot is clicked: name, distance,
+   and a "Directions" button. Lives in its own unclipped
+   layer so it isn't cut off by the radar's rounded corners.
+   ----------------------------------------------------- */
+.radar-popup-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* clicks pass through to the radar, except on the popup itself */
+}
+
+.radar-popup {
+  position: absolute;
+  pointer-events: auto;
+  transform: translate(-50%, calc(-100% - 16px)); /* centered above the dot, with a gap */
+  min-width: 180px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+  z-index: 5;
+}
+
+/* Flip below the dot when it's too close to the top edge */
+.radar-popup.radar-popup-below {
+  transform: translate(-50%, 16px);
+}
+
+/* Nudge sideways when the dot is too close to the left/right edge */
+.radar-popup.radar-popup-align-left {
+  transform: translate(-8%, calc(-100% - 16px));
+}
+
+.radar-popup.radar-popup-align-left.radar-popup-below {
+  transform: translate(-8%, 16px);
+}
+
+.radar-popup.radar-popup-align-right {
+  transform: translate(-92%, calc(-100% - 16px));
+}
+
+.radar-popup.radar-popup-align-right.radar-popup-below {
+  transform: translate(-92%, 16px);
+}
+
+.radar-popup-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  color: rgba(30, 20, 16, 0.45);
+}
+
+.radar-popup-close:hover {
+  color: var(--color-ink);
+}
+
+.radar-popup .map-popup-name {
+  padding-right: 16px; /* room for the close button */
+}
+
+.radar-popup .map-popup-directions-button {
+  margin-top: 8px;
+  width: 100%;
+  text-align: center;
+}
+
+/* =====================================================
+   SHARED SECTION STYLES
+   (used by "Nearby", "How it works", and "For shop owners")
+   ===================================================== */
+.section {
+  padding: 88px 0;
+}
+
+.section-heading {
+  margin-bottom: 46px;
+}
+
+.section-heading h2 {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 2.1rem;
+  margin-bottom: 8px;
+}
+
+.section-heading p {
+  color: rgba(30, 20, 16, 0.6);
+  max-width: 380px;
+  font-size: 0.98rem;
+}
+
+/* =====================================================
+   NEARBY SHOPS SECTION
+   ===================================================== */
+.filter-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 38px;
+}
+
+.filter-chip {
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 100px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-ink);
+  transition: all 0.15s;
+}
+
+.filter-chip:hover,
+.filter-chip-active {
+  background: var(--color-espresso);
+  color: var(--color-crema);
+  border-color: var(--color-espresso);
+}
+
+/* The 3-column grid of coffee shop "ticket" cards */
+.ticket-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 26px;
+}
+
+/* Stack the cards into a single column on smaller screens */
+@media (max-width: 900px) {
+  .ticket-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ticket-card {
+  background: var(--color-espresso);
+  color: var(--color-crema);
+  border-radius: 14px;
+  position: relative;
+  padding: 26px 24px 22px;
+}
+
+/* These two circles create the "torn ticket" notch on the left and right edges */
+.ticket-card::before,
+.ticket-card::after {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  background: var(--color-paper);
+  border-radius: 50%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ticket-card::before {
+  left: -11px;
+}
+
+.ticket-card::after {
+  right: -11px;
+}
+
+.ticket-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px dashed rgba(243, 230, 204, 0.25);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+.ticket-card-name {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+.ticket-card-address {
+  font-size: 0.82rem;
+  color: rgba(243, 230, 204, 0.55);
+}
+
+.ticket-card-distance {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  background: rgba(217, 164, 65, 0.16);
+  color: var(--color-gold);
+  padding: 5px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.bean-rating {
+  margin-bottom: 14px;
+}
+
+.ticket-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.tag {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 100px;
+  background: rgba(243, 230, 204, 0.08);
+  color: rgba(243, 230, 204, 0.8);
+}
+
+.tag-open {
+  background: rgba(92, 107, 71, 0.35);
+  color: #B9CBA0;
+}
+
+.ticket-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+}
+
+.ticket-card-bottom a {
+  color: var(--color-gold);
+  font-weight: 600;
+}
+
+/* =====================================================
+   HOW IT WORKS SECTION
+   ===================================================== */
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+@media (max-width: 900px) {
+  .steps-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.step-card {
+  padding: 30px 26px;
+  background: var(--color-crema);
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+}
+
+.step-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--color-rust-dark);
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.step-card h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.step-card p {
+  font-size: 0.92rem;
+  color: rgba(30, 20, 16, 0.65);
+}
+
+/* =====================================================
+   "FOR SHOP OWNERS" BANNER
+   ===================================================== */
+.owner-banner {
+  background: var(--color-espresso);
+  color: var(--color-crema);
+  border-radius: 28px;
+  padding: 64px 56px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.owner-banner h2 {
+  font-family: 'Fraunces', serif;
+  font-size: 2rem;
+  font-weight: 600;
+  max-width: 460px;
+}
+
+.owner-banner p {
+  color: rgba(243, 230, 204, 0.65);
+  margin-top: 10px;
+  max-width: 420px;
+}
+
+/* =====================================================
+   FOOTER
+   ===================================================== */
+footer {
+  padding: 48px 0 40px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 40px;
+}
+
+.footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.footer-logo {
+  font-size: 1.05rem;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+  font-size: 0.85rem;
+  opacity: 0.65;
+}
+
+/* =====================================================
+   ACCESSIBILITY: respect "reduce motion" settings
+   Some people turn off animations in their OS settings.
+   This turns off our pulsing/blinking animations for them.
+   ===================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .pulsing-ring,
+  .blinking-dot,
+  .map-pin-user-ring,
+  .radar-user-ring,
+  .radar-cafe-dot {
+    animation: none;
+  }
+}
+
+/* =====================================================
+   REAL MAP: custom pins, popups, and directions button
+   ===================================================== */
+
+/* Rounds the corners of the real map and keeps Leaflet's
+   own controls from poking outside that rounded shape */
+#realMap {
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+/* ---- "You are here" pin: a solid dot with a pulsing ring ---- */
+.map-pin-user-wrapper {
+  position: relative;
+  width: 16px;
+  height: 16px;
+}
+
+.map-pin-user-dot {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-rust);
+  border: 2px solid var(--color-crema);
+}
+
+.map-pin-user-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-rust);
+  animation: map-pin-pulse 2s ease-out infinite;
+}
+
+@keyframes map-pin-pulse {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+/* ---- Coffee shop pin: a small gold dot ---- */
+.map-pin-cafe {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-gold);
+  border: 2px solid var(--color-espresso);
+}
+
+/* ---- Popup content when a pin is clicked ---- */
+.map-popup-name {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.map-popup-distance {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: rgba(30, 20, 16, 0.6);
+  margin-bottom: 10px;
+}
+
+.map-popup-directions-button {
+  background: var(--color-rust);
+  color: var(--color-crema);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 100px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.map-popup-directions-button:hover {
+  background: var(--color-rust-dark);
+}
