@@ -112,6 +112,89 @@ locateButton.addEventListener('click', function () {
 
 
 /* =====================================================
+   PART 1C: Typed address search
+   Turns whatever text the user types into coordinates
+   (using Nominatim, OpenStreetMap's free geocoder — same
+   ecosystem as the Overpass cafe data), then runs the same
+   nearby-cafe search used by "Use my location".
+   ===================================================== */
+
+const addressInput = document.getElementById('addressInput');
+const searchAddressButton = document.getElementById('searchAddressButton');
+const defaultAddressPlaceholder = addressInput.placeholder;
+
+// Turns a typed address into { latitude, longitude } using Nominatim.
+// Returns null if nothing matched.
+function geocodeAddress(address) {
+  const geocodeURL =
+    'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(address);
+
+  return fetch(geocodeURL)
+    .then(function (response) {
+      return response.json();
+    })
+    .then(function (results) {
+      if (results.length === 0) {
+        return null;
+      }
+      return {
+        latitude: parseFloat(results[0].lat),
+        longitude: parseFloat(results[0].lon)
+      };
+    });
+}
+
+// Runs when the user submits whatever they typed in the address box
+function handleAddressSearch() {
+  const typedAddress = addressInput.value.trim();
+
+  if (typedAddress === '') {
+    return; // nothing typed, nothing to search for
+  }
+
+  addressInput.disabled = true;
+  addressInput.placeholder = 'Searching…';
+  searchAddressButton.disabled = true;
+
+  geocodeAddress(typedAddress)
+    .then(function (location) {
+      if (location === null) {
+        alert('Could not find that address. Try a more specific one, like "City, Country".');
+        return;
+      }
+
+      // From here on, treat the typed address just like a GPS location —
+      // the same variables and search function power both paths.
+      userLatitude = location.latitude;
+      userLongitude = location.longitude;
+
+      console.log('Geocoded address to:', userLatitude, userLongitude);
+
+      searchNearbyCoffeeShops(userLatitude, userLongitude);
+    })
+    .catch(function (error) {
+      console.log('Geocoding failed:', error);
+      alert('Something went wrong searching for that address. Please try again.');
+    })
+    .finally(function () {
+      addressInput.disabled = false;
+      addressInput.placeholder = defaultAddressPlaceholder;
+      searchAddressButton.disabled = false;
+    });
+}
+
+// Pressing Enter while typing in the address box triggers the search
+addressInput.addEventListener('keydown', function (event) {
+  if (event.key === 'Enter') {
+    handleAddressSearch();
+  }
+});
+
+// Clicking the Search button does the same thing as pressing Enter
+searchAddressButton.addEventListener('click', handleAddressSearch);
+
+
+/* =====================================================
    PART 1B: SVG radar — plotting found cafes around the
    user's center dot, and showing a popup with the cafe's
    name, distance, and a directions button when clicked.
