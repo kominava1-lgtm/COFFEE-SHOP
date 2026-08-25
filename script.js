@@ -20,7 +20,7 @@ const loadingButtonContent = 'Locating…';
 const successButtonContent =
   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none">' +
     '<path d="M20 6L9 17l-5-5" stroke="#F3E6CC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-  '</svg> Located you';
+  '</svg> Located';
 
 // Asks OpenStreetMap (via the Overpass API) for cafes, coffee shops,
 // and coffee-serving spots near a point. No API key needed — this
@@ -198,8 +198,10 @@ searchAddressButton.addEventListener('click', handleAddressSearch);
    PART 1B: SVG radar — plotting found cafes around the
    user's center dot, and showing a popup with the cafe's
    name, distance, and a directions button when clicked.
-   Positions are random, just kept inside the outer ring
-   so dots never overlap the center pin or spill outside.
+   Distance from center reflects real distance from the
+   user; angle is randomized but nudged to avoid dots
+   landing on top of each other (which would make them
+   unclickable).
    ===================================================== */
 
 const RADAR_CENTER_X = 200;
@@ -207,6 +209,8 @@ const RADAR_CENTER_Y = 200;
 const RADAR_MIN_DISTANCE = 25;      // keeps dots off the user's own pin
 const RADAR_MAX_DISTANCE = 175;     // keeps dots inside the outermost ring
 const RADAR_SEARCH_RADIUS_KM = 3;   // matches the 3km radius used in the Overpass search
+const RADAR_DOT_RADIUS = 8;         // visual size of each cafe dot
+const RADAR_MIN_DOT_GAP = RADAR_DOT_RADIUS * 2 + 4; // minimum center-to-center distance allowed between two dots
 
 // Removes any cafe dots left over from a previous search
 function clearRadarDots() {
@@ -215,31 +219,75 @@ function clearRadarDots() {
   removeRadarPopup();
 }
 
-// Creates one <circle> SVG element for a single cafe. The angle
-// around the center is random, but the distance from center
-// reflects the cafe's real distance from the user — closer
-// cafes land nearer the middle, farther ones nearer the edge.
-// Clicking the dot opens a popup with that cafe's real info.
-function createRadarDot(cafe, randomDelaySeconds) {
-  const randomAngle = Math.random() * Math.PI * 2; // 0 to 360 degrees, in radians
+// Straight-line distance between two points in the SVG's own
+// coordinate space (not real-world km — just used to check overlap).
+function distanceBetweenPoints(x1, y1, x2, y2) {
+  return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+}
 
-  const actualDistanceKm = calculateDistanceInKm(userLatitude, userLongitude, cafe.lat, cafe.lon);
+// Picks an angle (in radians) for this cafe's dot that keeps it
+// at least RADAR_MIN_DOT_GAP away from every already-placed dot,
+// while staying at the same radarDistance from center (so the
+// "closer cafes are nearer the middle" rule is never broken —
+// only the angle moves to resolve overlaps, not the distance).
+function findNonOverlappingAngle(radarDistance, placedPositions) {
+  const maxRandomAttempts = 60;
 
-  // Scale the real-world distance (0 to 3km) onto the radar's
-  // distance range (RADAR_MIN_DISTANCE to RADAR_MAX_DISTANCE).
-  // Clamp at 1 in case a result is right at the radius edge.
-  const distanceRatio = Math.min(actualDistanceKm / RADAR_SEARCH_RADIUS_KM, 1);
-  const radarDistance = RADAR_MIN_DISTANCE + distanceRatio * (RADAR_MAX_DISTANCE - RADAR_MIN_DISTANCE);
+  // First, try random angles — cheap, and works almost all the time
+  // since the radar isn't usually packed with dots.
+  for (let attempt = 0; attempt < maxRandomAttempts; attempt++) {
+    const candidateAngle = Math.random() * Math.PI * 2;
+    const candidateX = RADAR_CENTER_X + radarDistance * Math.cos(candidateAngle);
+    const candidateY = RADAR_CENTER_Y + radarDistance * Math.sin(candidateAngle);
 
-  const dotX = RADAR_CENTER_X + radarDistance * Math.cos(randomAngle);
-  const dotY = RADAR_CENTER_Y + radarDistance * Math.sin(randomAngle);
+    const overlapsAnyExistingDot = placedPositions.some(function (position) {
+      return distanceBetweenPoints(candidateX, candidateY, position.x, position.y) < RADAR_MIN_DOT_GAP;
+    });
 
+    if (!overlapsAnyExistingDot) {
+      return candidateAngle;
+    }
+  }
+
+  // Fallback for a crowded radar: sweep angles in fixed steps and
+  // keep whichever one puts the most distance between this dot
+  // and its closest neighbor — not a perfect gap, but the least bad option.
+  let bestAngle = Math.random() * Math.PI * 2;
+  let bestMinimumGap = -Infinity;
+  const angleStepCount = 72; // every 5 degrees
+
+  for (let step = 0; step < angleStepCount; step++) {
+    const candidateAngle = (step / angleStepCount) * Math.PI * 2;
+    const candidateX = RADAR_CENTER_X + radarDistance * Math.cos(candidateAngle);
+    const candidateY = RADAR_CENTER_Y + radarDistance * Math.sin(candidateAngle);
+
+    let closestGapFound = Infinity;
+    placedPositions.forEach(function (position) {
+      const gap = distanceBetweenPoints(candidateX, candidateY, position.x, position.y);
+      if (gap < closestGapFound) {
+        closestGapFound = gap;
+      }
+    });
+
+    if (closestGapFound > bestMinimumGap) {
+      bestMinimumGap = closestGapFound;
+      bestAngle = candidateAngle;
+    }
+  }
+
+  return bestAngle;
+}
+
+// Creates one <circle> SVG element for a single cafe at an
+// already-decided x/y position. Clicking it opens a popup
+// with that cafe's real info.
+function createRadarDot(cafe, dotX, dotY, randomDelaySeconds) {
   // SVG elements can't be made with document.createElement —
   // they need createElementNS with the SVG namespace.
   const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
   dot.setAttribute('cx', dotX.toFixed(1));
   dot.setAttribute('cy', dotY.toFixed(1));
-  dot.setAttribute('r', 6);
+  dot.setAttribute('r', RADAR_DOT_RADIUS);
   dot.setAttribute('class', 'radar-cafe-dot');
   dot.style.animationDelay = randomDelaySeconds + 's';
 
@@ -253,16 +301,34 @@ function createRadarDot(cafe, randomDelaySeconds) {
 
 // Takes the full list of cafes found and plots one dot per
 // cafe onto the radar, replacing whatever was there before.
+// Each dot's distance from center is based on the cafe's real
+// distance from the user; the angle is chosen to avoid overlapping
+// any dot already placed.
 function renderRadarCafes(cafeList) {
   clearRadarDots();
 
   const radarDotsGroup = document.getElementById('radarDots');
+  const placedPositions = []; // { x, y } for every dot placed so far, used for overlap checks
 
   cafeList.forEach(function (cafe, index) {
+    const actualDistanceKm = calculateDistanceInKm(userLatitude, userLongitude, cafe.lat, cafe.lon);
+
+    // Scale the real-world distance (0 to 3km) onto the radar's
+    // distance range (RADAR_MIN_DISTANCE to RADAR_MAX_DISTANCE).
+    // Clamp at 1 in case a result is right at the radius edge.
+    const distanceRatio = Math.min(actualDistanceKm / RADAR_SEARCH_RADIUS_KM, 1);
+    const radarDistance = RADAR_MIN_DISTANCE + distanceRatio * (RADAR_MAX_DISTANCE - RADAR_MIN_DISTANCE);
+
+    const chosenAngle = findNonOverlappingAngle(radarDistance, placedPositions);
+    const dotX = RADAR_CENTER_X + radarDistance * Math.cos(chosenAngle);
+    const dotY = RADAR_CENTER_Y + radarDistance * Math.sin(chosenAngle);
+
+    placedPositions.push({ x: dotX, y: dotY });
+
     // Stagger the pop-in animation slightly so dots don't all
     // appear in one single flash.
     const staggerDelay = index * 0.05;
-    const dot = createRadarDot(cafe, staggerDelay);
+    const dot = createRadarDot(cafe, dotX, dotY, staggerDelay);
     radarDotsGroup.appendChild(dot);
   });
 }
@@ -470,7 +536,7 @@ window.addEventListener('resize', function () {
 // Builds the HTML for ONE cafe card. Real map data is messy —
 // not every cafe has a name or hours listed — so we fall back
 // to sensible defaults instead of showing "undefined".
-function buildTicketCardHTML(cafe) {
+function buildTicketCardHTML(cafe, index) {
   const cafeName = cafe.tags.name || 'Unnamed Coffee Shop';
 
   const hoursText = cafe.tags.opening_hours
@@ -478,7 +544,7 @@ function buildTicketCardHTML(cafe) {
     : '';
 
   return `
-    <div class="ticket-card">
+    <div class="ticket-card" data-cafe-index="${index}">
       <div class="ticket-card-top">
         <div>
           <div class="ticket-card-name">${cafeName}</div>
@@ -497,6 +563,11 @@ function buildTicketCardHTML(cafe) {
 
 // Takes the full list of cafes and replaces whatever is in the
 // ticket grid with real cards — one per cafe.
+
+// Remembers the cafes currently shown, so when someone clicks a
+// ticket card, we can look up the full cafe data by its index.
+let currentCafeList = [];
+
 function displayCoffeeShops(cafeList) {
   const ticketGrid = document.getElementById('ticketGrid');
 
@@ -505,7 +576,14 @@ function displayCoffeeShops(cafeList) {
     return;
   }
 
-  const allCardsHTML = cafeList.map(buildTicketCardHTML).join('');
+    currentCafeList = cafeList;
+
+  const allCardsHTML = cafeList
+    .map(function (cafe, index) {
+      return buildTicketCardHTML(cafe, index);
+    })
+    .join('');
+
   ticketGrid.innerHTML = allCardsHTML;
 }
 
@@ -659,3 +737,65 @@ function showRealMap(latitude, longitude, cafeList) {
     createCafeMarker(cafe);
   });
 }
+
+/* =====================================================
+   PART 7: Cafe detail panel — opens when a ticket is clicked
+   ===================================================== */
+
+const cafeDetailOverlay = document.getElementById('cafeDetailOverlay');
+const cafeDetailPanel = document.getElementById('cafeDetailPanel');
+const cafeDetailCloseButton = document.getElementById('cafeDetailCloseButton');
+const cafeDetailContent = document.getElementById('cafeDetailContent');
+
+function openCafeDetail(cafe) {
+  renderCafeDetail(cafe);
+  cafeDetailOverlay.classList.add('is-open');
+  cafeDetailPanel.classList.add('is-open');
+}
+
+function closeCafeDetail() {
+  cafeDetailOverlay.classList.remove('is-open');
+  cafeDetailPanel.classList.remove('is-open');
+}
+
+cafeDetailCloseButton.addEventListener('click', closeCafeDetail);
+cafeDetailOverlay.addEventListener('click', closeCafeDetail);
+
+function renderCafeDetail(cafe) {
+  const cafeName = cafe.tags.name || 'Unnamed Coffee Shop';
+  const distanceKm = calculateDistanceInKm(userLatitude, userLongitude, cafe.lat, cafe.lon).toFixed(2);
+  const hoursText = cafe.tags.opening_hours || 'Not listed';
+  const phoneText = cafe.tags.phone || cafe.tags['contact:phone'] || null;
+  const websiteText = cafe.tags.website || cafe.tags['contact:website'] || null;
+
+  cafeDetailContent.innerHTML =
+    '<div class="cafe-detail-photo"></div>' +
+    '<div class="cafe-detail-body">' +
+      '<div class="cafe-detail-name">' + cafeName + '</div>' +
+      '<div class="cafe-detail-address">' + distanceKm + ' km away</div>' +
+
+      '<div class="cafe-detail-row"><span>Opening Hours</span><span>' + hoursText + '</span></div>' +
+
+      (phoneText ? '<div class="cafe-detail-row"><span>Phone</span><span>' + phoneText + '</span></div>' : '') +
+      (websiteText ? '<div class="cafe-detail-row"><span>Website</span><span>' + websiteText + '</span></div>' : '') +
+
+      '<button class="button-rust cafe-detail-directions-button" id="cafeDetailDirectionsButton">Get directions</button>' +
+    '</div>';
+
+  document.getElementById('cafeDetailDirectionsButton').addEventListener('click', function () {
+    openDirectionsTo(cafe.lat, cafe.lon);
+  });
+}
+
+// One click listener on the whole grid, instead of one per card —
+// this way it still works even after cards get replaced by a new search.
+document.getElementById('ticketGrid').addEventListener('click', function (event) {
+  const clickedCard = event.target.closest('.ticket-card');
+  if (clickedCard === null) {
+    return;
+  }
+
+  const cafeIndex = Number(clickedCard.dataset.cafeIndex);
+  const cafe = currentCafeList[cafeIndex];
+  openCafeDetail(cafe);
+});

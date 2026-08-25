@@ -43,7 +43,7 @@
         <a href="#">Home</a>
         <a href="#nearby">Locate Cafe</a>
         <a href="#about">About Us</a>
-        <a href="#about">Account</a>
+        <a href="#">Account</a>
       </nav>
 
       <!-- Button shown on a normal-sized screen -->
@@ -75,7 +75,7 @@
             <path d="M4 8h13a3 3 0 0 1 0 6h-1M4 8v7a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4v-1M4 8L3 5" stroke="#F3E6CC" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </span>
-        Grounds
+        EspressoXPress
       </div>
       <button class="mobile-menu-close" id="mobileMenuCloseButton" aria-label="Close menu">✕</button>
     </div>
@@ -85,6 +85,20 @@
 
     <button class="button-dark mobile-menu-cta">Open map</button>
   </aside>
+
+  <!-- ============================================================ -->
+  <!-- CAFE DETAIL PANEL (opens when a ticket card is clicked) -->
+  <!-- Content inside #cafeDetailContent is filled in dynamically
+     by script.js, using data from whichever cafe was clicked. -->
+  <!-- ============================================================ -->
+
+  <div class = "cafe-detail-overlay" id = "cafeDetailOverlay"></div>
+
+  <div class = "cafe-detail-panel" id = "cafeDetailPanel">
+    <button class = "cafe-detail-close" id = "cafeDetailCloseButton" aria-label="Close">✕</button>
+    <div id= "cafeDetailContent"></div>
+  </div>
+
 
   <!-- ============================================= -->
   <!-- HERO SECTION (the big intro at the top)        -->
@@ -108,20 +122,22 @@
 
         <div class="search-box">
           <input type="text" id="addressInput" placeholder="Enter an address, or use your location…">
-          <button class="search-address-button" id="searchAddressButton">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <circle cx="11" cy="11" r="7" stroke="#2B1B14" stroke-width="2"/>
-              <path d="M20 20l-3.5-3.5" stroke="#2B1B14" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            Search
-          </button>
-          <button class="locate-me-button" id="locateMeButton">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="3" stroke="#F3E6CC" stroke-width="2"/>
-              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="#F3E6CC" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            Use my location
-          </button>
+          <div class="search-actions">
+            <button class="search-address-button" id="searchAddressButton">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="7" stroke="#2B1B14" stroke-width="2"/>
+                <path d="M20 20l-3.5-3.5" stroke="#2B1B14" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Search
+            </button>
+            <button class="locate-me-button" id="locateMeButton">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="3" stroke="#F3E6CC" stroke-width="2"/>
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="#F3E6CC" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Use my location
+            </button>
+          </div>
         </div>
 
         <div class="stats-row">
@@ -135,7 +151,7 @@
           </div>
           <div class="stat-box">
             <span class="stat-number">180</span>
-            <span class="stat-label">countries</span>
+            <span class="stat-label">cafe located by radar</span>
           </div>
         </div>
       </div>
@@ -170,7 +186,7 @@
             </svg>
 
             <div class="map-caption">
-              <span class="map-you-label">You are here</span>
+              <span class="map-you-label">Cafe Finder</span>
               <span class="map-radius-label">3km radius</span>
             </div>
           </div>
@@ -195,7 +211,7 @@
     <div class="page-width">
 
       <div class="section-heading">
-        <h2>Nearby, open now</h2>
+        <h2>Nearby coffee for you</h2>
         <p>Pulled live from your radius — ranked by distance, not who paid for placement.</p>
       </div>
 
