@@ -63,7 +63,6 @@ function searchNearbyCoffeeShops(latitude, longitude) {
       console.log('Found ' + coffeeShops.length + ' coffee shops:', coffeeShops);
       displayCoffeeShops(coffeeShops);
       renderRadarCafes(coffeeShops);
-      // showRealMap(latitude, longitude, coffeeShops); // wiring this in comes next
     })
     .catch(function (error) {
       console.log('Overpass search failed:', error);
@@ -368,6 +367,7 @@ function showRadarPopup(cafe, dotX, dotY) {
     '<button class="radar-popup-close" aria-label="Close">✕</button>' +
     '<div class="map-popup-name">' + cafeName + '</div>' +
     '<div class="map-popup-distance">' + distanceKm + ' km away</div>' +
+    '<button class="map-popup-view-page-button">View cafe page</button>' +
     '<button class="map-popup-directions-button">Directions</button>';
 
   document.getElementById('radarPopupLayer').appendChild(popup);
@@ -375,6 +375,12 @@ function showRadarPopup(cafe, dotX, dotY) {
   popup.querySelector('.radar-popup-close').addEventListener('click', function (event) {
     event.stopPropagation();
     removeRadarPopup();
+  });
+
+  popup.querySelector('.map-popup-view-page-button').addEventListener('click', function (event) {
+    event.stopPropagation();
+    removeRadarPopup();
+    openCafeDetail(cafe);
   });
 
   popup.querySelector('.map-popup-directions-button').addEventListener('click', function (event) {
@@ -561,13 +567,12 @@ function buildTicketCardHTML(cafe, index) {
   `;
 }
 
-// Takes the full list of cafes and replaces whatever is in the
-// ticket grid with real cards — one per cafe.
-
 // Remembers the cafes currently shown, so when someone clicks a
 // ticket card, we can look up the full cafe data by its index.
 let currentCafeList = [];
 
+// Takes the full list of cafes and replaces whatever is in the
+// ticket grid with real cards — one per cafe.
 function displayCoffeeShops(cafeList) {
   const ticketGrid = document.getElementById('ticketGrid');
 
@@ -576,7 +581,7 @@ function displayCoffeeShops(cafeList) {
     return;
   }
 
-    currentCafeList = cafeList;
+  currentCafeList = cafeList;
 
   const allCardsHTML = cafeList
     .map(function (cafe, index) {
@@ -623,123 +628,8 @@ function calculateDistanceInKm(lat1, lon1, lat2, lon2) {
 
 
 /* =====================================================
-   PART 7: Show a real map with a pin for you and for
-   every nearby cafe. Uses Leaflet + OpenStreetMap tiles —
-   free, no API key needed.
-   ===================================================== */
-
-let mapInstance = null;     // holds the map itself, once created
-let routingControl = null;  // holds the current "directions" route line, if any
-
-// A custom icon for the user's own pin: a solid dot with a
-// pulsing ring around it (built with plain CSS, see styles.css)
-function createUserIcon() {
-  return L.divIcon({
-    className: '', // stops Leaflet from adding its own default pin styling
-    html: '<div class="map-pin-user-wrapper">' +
-            '<div class="map-pin-user-ring"></div>' +
-            '<div class="map-pin-user-dot"></div>' +
-          '</div>',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8] // centers the icon on its exact coordinate
-  });
-}
-
-// A custom icon for a coffee shop pin: a small gold dot
-function createCafeIcon() {
-  return L.divIcon({
-    className: '',
-    html: '<div class="map-pin-cafe"></div>',
-    iconSize: [14, 14],
-    iconAnchor: [7, 7]
-  });
-}
-
-// Removes any currently-drawn route, so clicking a new
-// "Show directions" button doesn't stack routes on top of each other
-function clearDirections() {
-  if (routingControl !== null) {
-    mapInstance.removeControl(routingControl);
-    routingControl = null;
-  }
-}
-
-// Draws an actual route (along real roads) from the user to
-// one destination point, using the free Leaflet Routing Machine plugin
-function showDirectionsTo(destinationLat, destinationLon) {
-  clearDirections();
-
-  routingControl = L.Routing.control({
-    waypoints: [
-      L.latLng(userLatitude, userLongitude),
-      L.latLng(destinationLat, destinationLon)
-    ],
-    routeWhileDragging: false
-  }).addTo(mapInstance);
-}
-
-// Creates one cafe marker, with a popup showing its name,
-// distance, and a "Show directions" button
-function createCafeMarker(cafe) {
-  const cafeName = cafe.tags.name || 'Unnamed Coffee Shop';
-  const distanceText = calculateDistanceInKm(userLatitude, userLongitude, cafe.lat, cafe.lon).toFixed(2);
-
-  const marker = L.marker([cafe.lat, cafe.lon], { icon: createCafeIcon() }).addTo(mapInstance);
-
-  const popupHTML =
-    '<div class="map-popup-name">' + cafeName + '</div>' +
-    '<div class="map-popup-distance">' + distanceText + ' km away</div>' +
-    '<button class="map-popup-directions-button">Show directions</button>';
-
-  marker.bindPopup(popupHTML);
-
-  // The "Show directions" button doesn't exist on the page until
-  // the popup is actually opened, so we can't attach a click
-  // listener to it right away — we have to wait for the popup
-  // to open first, then find the button INSIDE that specific popup.
-  marker.on('popupopen', function (event) {
-    const popupElement = event.popup.getElement();
-    const directionsButton = popupElement.querySelector('.map-popup-directions-button');
-
-    directionsButton.addEventListener('click', function () {
-      showDirectionsTo(cafe.lat, cafe.lon);
-    });
-  });
-
-  return marker;
-}
-
-function showRealMap(latitude, longitude, cafeList) {
-  // If a map already exists (user clicked the button more than
-  // once), remove the old one first so we don't stack duplicates
-  if (mapInstance !== null) {
-    mapInstance.remove();
-    routingControl = null; // the old route was destroyed along with the old map
-  }
-
-  // Create the map, centered on the user, zoomed in fairly close.
-  // 'realMap' must match the id of the empty <div> in index.html.
-  mapInstance = L.map('realMap').setView([latitude, longitude], 15);
-
-  // Add the visual map tiles. We're using CartoDB's free "dark"
-  // tile set instead of the default light one, to match our
-  // espresso color palette.
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© OpenStreetMap contributors © CARTO'
-  }).addTo(mapInstance);
-
-  // Drop the pulsing pin for the user's own location
-  L.marker([latitude, longitude], { icon: createUserIcon() }).addTo(mapInstance)
-    .bindPopup('You are here');
-
-  // Drop a custom pin (with popup + directions button) for every cafe found
-  cafeList.forEach(function (cafe) {
-    createCafeMarker(cafe);
-  });
-}
-
-/* =====================================================
-   PART 7: Cafe detail panel — opens when a ticket is clicked
+   PART 8: Cafe detail panel — opens when a ticket card
+   or a radar/map popup's "View cafe page" is clicked
    ===================================================== */
 
 const cafeDetailOverlay = document.getElementById('cafeDetailOverlay');
@@ -774,7 +664,7 @@ function renderCafeDetail(cafe) {
       '<div class="cafe-detail-name">' + cafeName + '</div>' +
       '<div class="cafe-detail-address">' + distanceKm + ' km away</div>' +
 
-      '<div class="cafe-detail-row"><span>Opening Hours</span><span>' + hoursText + '</span></div>' +
+      '<div class="cafe-detail-row"><span>Hours</span><span>' + hoursText + '</span></div>' +
 
       (phoneText ? '<div class="cafe-detail-row"><span>Phone</span><span>' + phoneText + '</span></div>' : '') +
       (websiteText ? '<div class="cafe-detail-row"><span>Website</span><span>' + websiteText + '</span></div>' : '') +
@@ -799,3 +689,32 @@ document.getElementById('ticketGrid').addEventListener('click', function (event)
   const cafe = currentCafeList[cafeIndex];
   openCafeDetail(cafe);
 });
+
+
+/* =====================================================
+   PART 9: "Open map" — sends the current search results
+   to map.html, which shows the real interactive map.
+   Since navigating to a new page wipes out all our
+   JavaScript variables, we save what the map page needs
+   into localStorage first, and map.js reads it back out.
+   ===================================================== */
+
+function goToMapPage() {
+  // Only save search data if the user actually searched for something.
+  // If they haven't, we just skip this — map.html knows how to handle
+  // having no saved data.
+  if (userLatitude !== null && userLongitude !== null) {
+    const mapPageData = {
+      lat: userLatitude,
+      lon: userLongitude,
+      cafes: currentCafeList
+    };
+
+    localStorage.setItem('espressoXpressMapData', JSON.stringify(mapPageData));
+  }
+
+  window.location.href = 'map.html';
+}
+
+document.getElementById('openMapButton').addEventListener('click', goToMapPage);
+document.getElementById('openMapButtonMobile').addEventListener('click', goToMapPage);

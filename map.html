@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EspressoXPress — Map</title>
+
+  <!-- Same fonts and colors as the homepage, so this page matches -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+
+  <!-- for map viewing -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+  <!-- for our backend: saving and loading visited pins -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <style>
+    /* A few small styles just for this page — the map needs to
+       fill most of the screen, which the homepage's map card
+       (sized for a small preview) was never meant to do. */
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    #realMap {
+      width: 90%;
+      height: 500px;
+      margin: 40px auto;
+      margin-bottom: 0;
+    }
+    .map-page-header {
+      padding: 14px 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================= -->
+  <!-- SIMPLE HEADER (logo + link back to the homepage) -->
+  <!-- ============================================= -->
+  <header class="map-page-header">
+    <div class="page-width nav-bar">
+      <div class="logo">
+        <span class="logo-circle">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M4 8h13a3 3 0 0 1 0 6h-1M4 8v7a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4v-1M4 8L3 5" stroke="#F3E6CC" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        EspressoXPress
+      </div>
+      <a href="index.html" class="button-dark-map">← Return Home</a>
+    </div>
+  </header>
+
+  <!-- The real, tile-based map (Leaflet) fills the rest of the page -->
+  <div id="realMap"></div>
+
+  <!-- Sets up the connection to our Supabase backend -->
+  <script src="supabase-client.js"></script>
+
+  <!-- All of the map-page-specific behavior lives in this file -->
+  <script src="map.js"></script>
+</body>
+</html>
