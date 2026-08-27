@@ -1,6 +1,34 @@
 // Get your own free key at geoapify.com — this one is a placeholder.
 const GEOAPIFY_API_KEY = '3de55e6482c54ff483043085bc107b15';
 
+// Supabase resources used by the in-app cafe editor. Create these
+// resources in your Supabase project before saving details or photos.
+const CAFE_DETAILS_TABLE = 'cafe_details';
+const CAFE_MENU_BUCKET = 'cafe-menus';
+
+// A cafe's name and its coordinates make a stable, non-editable key.
+// This prevents cafes with the same name from sharing their details.
+function getCafeRecordKey(cafe) {
+  const cafeName = (cafe.tags.name || 'unnamed-cafe')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+
+  return cafeName + ':' + Number(cafe.lat).toFixed(5) + ':' + Number(cafe.lon).toFixed(5);
+}
+
+// Makes user-supplied text safe before it is placed into innerHTML.
+// For example, <script> becomes visible text instead of browser code.
+// It replaces the five characters HTML uses for tags and attributes.
+function escapeHTML(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 /* =====================================================
    PART 1: "Use my location" button
    Asks the browser for the user's real GPS location,
@@ -128,10 +156,9 @@ function convertGeoapifyResultsToCafeShape(features) {
       lat: properties.lat,
       lon: properties.lon,
       tags: {
-        name: properties.name,
-        opening_hours: properties.opening_hours || null,
-        phone: properties.contact ? properties.contact.phone : null,
-        website: properties.website || null
+        // The cafe name comes from the live search. Page details are
+        // intentionally maintained through the in-app editor.
+        name: properties.name
       }
     };
   });
@@ -713,45 +740,190 @@ const cafeDetailOverlay = document.getElementById('cafeDetailOverlay');
 const cafeDetailPanel = document.getElementById('cafeDetailPanel');
 const cafeDetailCloseButton = document.getElementById('cafeDetailCloseButton');
 const cafeDetailContent = document.getElementById('cafeDetailContent');
+let activeCafe = null;
+let activeCafeInfo = {};
 
 function openCafeDetail(cafe) {
-  renderCafeDetail(cafe);
+  activeCafe = cafe;
+  activeCafeInfo = {};
+  renderCafeDetail(cafe, activeCafeInfo);
   cafeDetailOverlay.classList.add('is-open');
   cafeDetailPanel.classList.add('is-open');
+
+  loadCafeInfo(cafe).then(function (savedInfo) {
+    if (activeCafe !== cafe) {
+      return;
+    }
+
+    activeCafeInfo = savedInfo;
+    renderCafeDetail(cafe, activeCafeInfo);
+  });
 }
 
 function closeCafeDetail() {
   cafeDetailOverlay.classList.remove('is-open');
   cafeDetailPanel.classList.remove('is-open');
+  activeCafe = null;
+  activeCafeInfo = {};
 }
 
 cafeDetailCloseButton.addEventListener('click', closeCafeDetail);
 cafeDetailOverlay.addEventListener('click', closeCafeDetail);
 
-function renderCafeDetail(cafe) {
+async function loadCafeInfo(cafe) {
+  const result = await supabaseClient
+    .from(CAFE_DETAILS_TABLE)
+    .select('*')
+    .eq('cafe_key', getCafeRecordKey(cafe))
+    .maybeSingle();
+
+  if (result.error) {
+    console.log('Could not load cafe details:', result.error.message);
+    return {};
+  }
+
+  return result.data || {};
+}
+
+function renderCafeDetail(cafe, info) {
   const cafeName = cafe.tags.name || 'Unnamed Coffee Shop';
   const distanceKm = calculateDistanceInKm(userLatitude, userLongitude, cafe.lat, cafe.lon).toFixed(2);
-  const hoursText = cafe.tags.opening_hours || 'Not listed';
-  const phoneText = cafe.tags.phone || cafe.tags['contact:phone'] || null;
-  const websiteText = cafe.tags.website || cafe.tags['contact:website'] || null;
+  const addressText = info.address || 'Not added yet';
+  const hoursText = info.hours || 'Not added yet';
+  const phoneText = info.phone || 'Not added yet';
+  const websiteText = info.website || 'Not added yet';
+  const coverMarkup = info.cover_image
+    ? '<img class="cafe-detail-cover-image" src="' + escapeHTML(info.cover_image) + '" alt="Cover photo for ' + escapeHTML(cafeName) + '">'
+    : '<div class="cafe-detail-cover-placeholder">Cover photo will be added here.</div>';
+  const menuMarkup = info.menu_image
+    ? '<img class="cafe-detail-menu-image" src="' + escapeHTML(info.menu_image) + '" alt="Menu for ' + escapeHTML(cafeName) + '">'
+    : '<div class="cafe-detail-menu-placeholder">Menu photo will be added here.</div>';
 
   cafeDetailContent.innerHTML =
-    '<div class="cafe-detail-photo"></div>' +
+    '<div class="cafe-detail-photo">' + coverMarkup + '</div>' +
     '<div class="cafe-detail-body">' +
-      '<div class="cafe-detail-name">' + cafeName + '</div>' +
+      '<div class="cafe-detail-name">' + escapeHTML(cafeName) + '</div>' +
       '<div class="cafe-detail-address">' + distanceKm + ' km away</div>' +
 
-      '<div class="cafe-detail-row"><span>Hours</span><span>' + hoursText + '</span></div>' +
-
-      (phoneText ? '<div class="cafe-detail-row"><span>Phone</span><span>' + phoneText + '</span></div>' : '') +
-      (websiteText ? '<div class="cafe-detail-row"><span>Website</span><span>' + websiteText + '</span></div>' : '') +
+      '<div class="cafe-detail-row"><span>Address</span><span>' + escapeHTML(addressText) + '</span></div>' +
+      '<div class="cafe-detail-row"><span>Hours</span><span>' + escapeHTML(hoursText) + '</span></div>' +
+      '<div class="cafe-detail-row"><span>Phone</span><span>' + escapeHTML(phoneText) + '</span></div>' +
+      '<div class="cafe-detail-row"><span>Website</span><span>' + escapeHTML(websiteText) + '</span></div>' +
+      '<section class="cafe-detail-menu"><h3>Menu</h3>' + menuMarkup + '</section>' +
 
       '<button class="button-rust cafe-detail-directions-button" id="cafeDetailDirectionsButton">Get directions</button>' +
+      '<button class="button-dark cafe-detail-edit-button" id="cafeDetailEditButton">Edit cafe details</button>' +
     '</div>';
 
   document.getElementById('cafeDetailDirectionsButton').addEventListener('click', function () {
     openDirectionsTo(cafe.lat, cafe.lon);
   });
+
+  document.getElementById('cafeDetailEditButton').addEventListener('click', showCafeEditor);
+}
+
+function showCafeEditor() {
+  const cafeName = activeCafe.tags.name || 'Unnamed Coffee Shop';
+
+  cafeDetailContent.innerHTML =
+    '<div class="cafe-detail-photo"></div>' +
+    '<form class="cafe-editor-form" id="cafeEditorForm">' +
+      '<div class="cafe-detail-name">Edit cafe details</div>' +
+      '<p class="cafe-editor-help">The cafe name is supplied by the live search and cannot be changed here.</p>' +
+      '<label>Cafe name<input value="' + escapeHTML(cafeName) + '" readonly></label>' +
+      '<label>Cover photo<input name="coverPhoto" type="file" accept="image/*"></label>' +
+      (activeCafeInfo.cover_image ? '<label class="cafe-editor-checkbox"><input name="removeCoverPhoto" type="checkbox"> Remove current cover photo</label>' : '') +
+      '<label>Address<textarea name="address" rows="2" placeholder="Enter the full address">' + escapeHTML(activeCafeInfo.address || '') + '</textarea></label>' +
+      '<label>Opening hours<input name="hours" value="' + escapeHTML(activeCafeInfo.hours || '') + '" placeholder="e.g. Mon-Sun, 8 AM-8 PM"></label>' +
+      '<label>Phone number<input name="phone" value="' + escapeHTML(activeCafeInfo.phone || '') + '" placeholder="Enter phone number"></label>' +
+      '<label>Website or social link<input name="website" type="url" value="' + escapeHTML(activeCafeInfo.website || '') + '" placeholder="https://"></label>' +
+      '<label>Menu photo<input name="menuPhoto" type="file" accept="image/*"></label>' +
+      (activeCafeInfo.menu_image ? '<label class="cafe-editor-checkbox"><input name="removeMenuPhoto" type="checkbox"> Remove current menu photo</label>' : '') +
+      '<p class="cafe-editor-message" id="cafeEditorMessage"></p>' +
+      '<div class="cafe-editor-actions"><button type="button" class="button-dark" id="cafeEditorCancelButton">Cancel</button><button type="submit" class="button-rust" id="cafeEditorSaveButton">Save details</button></div>' +
+    '</form>';
+
+  document.getElementById('cafeEditorCancelButton').addEventListener('click', function () {
+    renderCafeDetail(activeCafe, activeCafeInfo);
+  });
+
+  document.getElementById('cafeEditorForm').addEventListener('submit', saveCafeEditor);
+}
+
+async function uploadCafePhoto(file, cafe, folder) {
+  const extension = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'jpg';
+  const safeKey = getCafeRecordKey(cafe).replace(/[^a-z0-9]+/g, '-');
+  const filePath = folder + '/' + safeKey + '-' + Date.now() + '.' + extension;
+  const uploadResult = await supabaseClient.storage
+    .from(CAFE_MENU_BUCKET)
+    .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+  if (uploadResult.error) {
+    throw uploadResult.error;
+  }
+
+  return supabaseClient.storage.from(CAFE_MENU_BUCKET).getPublicUrl(filePath).data.publicUrl;
+}
+
+async function saveCafeEditor(event) {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const saveButton = document.getElementById('cafeEditorSaveButton');
+  const message = document.getElementById('cafeEditorMessage');
+  const formData = new FormData(form);
+  const coverPhoto = formData.get('coverPhoto');
+  const menuPhoto = formData.get('menuPhoto');
+  let coverImage = activeCafeInfo.cover_image || null;
+  let menuImage = activeCafeInfo.menu_image || null;
+
+  saveButton.disabled = true;
+  saveButton.textContent = 'Saving...';
+  message.textContent = '';
+
+  try {
+    if (formData.get('removeCoverPhoto') === 'on') {
+      coverImage = null;
+    }
+
+    if (coverPhoto && coverPhoto.size > 0) {
+      coverImage = await uploadCafePhoto(coverPhoto, activeCafe, 'covers');
+    }
+
+    if (formData.get('removeMenuPhoto') === 'on') {
+      menuImage = null;
+    }
+
+    if (menuPhoto && menuPhoto.size > 0) {
+      menuImage = await uploadCafePhoto(menuPhoto, activeCafe, 'menus');
+    }
+
+    const details = {
+      cafe_key: getCafeRecordKey(activeCafe),
+      cafe_name: activeCafe.tags.name || 'Unnamed Coffee Shop',
+      address: formData.get('address').trim() || null,
+      hours: formData.get('hours').trim() || null,
+      phone: formData.get('phone').trim() || null,
+      website: formData.get('website').trim() || null,
+      cover_image: coverImage,
+      menu_image: menuImage
+    };
+
+    const result = await supabaseClient
+      .from(CAFE_DETAILS_TABLE)
+      .upsert(details, { onConflict: 'cafe_key' });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    activeCafeInfo = details;
+    renderCafeDetail(activeCafe, activeCafeInfo);
+  } catch (error) {
+    message.textContent = 'Could not save: ' + error.message;
+    saveButton.disabled = false;
+    saveButton.textContent = 'Save details';
+  }
 }
 
 // One click listener on the whole grid, instead of one per card —

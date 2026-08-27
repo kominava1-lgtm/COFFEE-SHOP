@@ -143,7 +143,7 @@ function initializeMap(latitude, longitude, cafeList, zoomLevel, hasRealLocation
     handleMapClick(clickedLat, clickedLon);
   });
 
-  loadVisitedPins();
+  loadVisitedPins(latitude, longitude, hasRealLocation);
 }
 
 
@@ -212,7 +212,16 @@ function saveVisitedPin(cafeName, lat, lon) {
     });
 }
 
-function loadVisitedPins() {
+// Only shows saved pins that are within range of an actual search —
+// if nobody searched (just viewing the default fallback view), no
+// pins are shown at all, since there's nothing nearby to compare to.
+function loadVisitedPins(latitude, longitude, hasRealLocation) {
+  if (hasRealLocation === false) {
+    return;
+  }
+
+  const SEARCH_RADIUS_KM = 3; // matches the radius used everywhere else in the app
+
   supabaseClient
     .from('visited_cafes')
     .select('*')
@@ -222,11 +231,16 @@ function loadVisitedPins() {
         return;
       }
 
-      result.data.forEach(function (pin) {
-        L.marker([pin.lat, pin.lon])
-          .addTo(mapInstance)
-          .bindPopup('✅ Visited: ' + (pin.cafe_name || 'Unnamed pin'));
-      });
+      result.data
+        .filter(function (pin) {
+          const distance = calculateDistanceInKm(latitude, longitude, pin.lat, pin.lon);
+          return distance <= SEARCH_RADIUS_KM;
+        })
+        .forEach(function (pin) {
+          L.marker([pin.lat, pin.lon])
+            .addTo(mapInstance)
+            .bindPopup('✅ Visited: ' + (pin.cafe_name || 'Unnamed pin'));
+        });
     });
 }
 
@@ -238,9 +252,9 @@ function loadVisitedPins() {
 
 // A generic fallback center for when nobody has searched yet —
 // this is just "somewhere to show," not tied to any real user.
-const DEFAULT_MAP_LAT = 20;
-const DEFAULT_MAP_LON = 0;
-const DEFAULT_MAP_ZOOM = 2; // zoomed way out, since we don't know where they are
+const DEFAULT_MAP_LAT = 15.8949;
+const DEFAULT_MAP_LON = 120.2863;
+const DEFAULT_MAP_ZOOM = 10; // zoomed way out, since we don't know where they are
 
 const savedDataText = localStorage.getItem('espressoXpressMapData');
 

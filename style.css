@@ -362,6 +362,27 @@ header {
   height: 140px;
   background: var(--color-border);
   border-radius: 20px 20px 0 0;
+  overflow: hidden;
+}
+
+.cafe-detail-cover-image,
+.cafe-detail-cover-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.cafe-detail-cover-image {
+  display: block;
+  object-fit: cover;
+}
+
+.cafe-detail-cover-placeholder {
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  color: rgba(30, 20, 16, 0.65);
+  font-size: 0.9rem;
+  text-align: center;
 }
 
 .cafe-detail-body {
@@ -390,9 +411,127 @@ header {
 .cafe-detail-row {
   display: flex;
   justify-content: space-between;
+  gap: 16px;
   font-size: 0.9rem;
   padding: 8px 0;
   border-top: 1px solid var(--color-border);
+}
+
+.cafe-detail-row span:last-child {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.cafe-detail-menu {
+  margin-top: 20px;
+}
+
+.cafe-detail-menu h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.05rem;
+  margin: 0 0 8px;
+}
+
+.cafe-detail-menu-placeholder,
+.cafe-detail-menu-image {
+  display: block;
+  width: 100%;
+  min-height: 150px;
+  border: 1px dashed var(--color-border);
+  border-radius: 10px;
+}
+
+.cafe-detail-menu-placeholder {
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+  background: rgba(30, 20, 16, 0.04);
+  color: rgba(30, 20, 16, 0.65);
+  text-align: center;
+}
+
+.cafe-detail-menu-image {
+  min-height: 0;
+  border-style: solid;
+  object-fit: cover;
+}
+
+.cafe-detail-edit-button {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.cafe-editor-form {
+  padding: 20px 24px 0;
+}
+
+.cafe-editor-help {
+  margin: 0 0 18px;
+  color: rgba(30, 20, 16, 0.65);
+  font-size: 0.85rem;
+}
+
+.cafe-editor-form label {
+  display: grid;
+  gap: 6px;
+  margin-top: 13px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.cafe-editor-form input,
+.cafe-editor-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fffdf8;
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: 400;
+}
+
+.cafe-editor-form textarea {
+  resize: vertical;
+}
+
+.cafe-editor-form input[readonly] {
+  background: rgba(30, 20, 16, 0.06);
+  color: rgba(30, 20, 16, 0.65);
+}
+
+.cafe-editor-form .cafe-editor-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cafe-editor-checkbox input {
+  width: auto;
+}
+
+.cafe-editor-message {
+  min-height: 1.3em;
+  margin-top: 14px;
+  color: var(--color-rust-dark);
+  font-size: 0.85rem;
+}
+
+.cafe-editor-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.cafe-editor-actions button {
+  flex: 1;
+  padding: 11px 14px;
+}
+
+.cafe-editor-actions button:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .cafe-detail-directions-button {
@@ -892,7 +1031,7 @@ h1 em {
    (used by "Nearby", "How it works", and "For shop owners")
    ===================================================== */
 .section {
-  padding: 88px 0;
+  padding: 50px 0;
 }
 
 .section-heading {
