@@ -62,6 +62,20 @@
   <!-- The real, tile-based map (Leaflet) fills the rest of the page -->
   <div id="realMap"></div>
 
+  <!-- ============================================================ -->
+  <!-- PIN NAME MODAL (asks for a name when you click the map) -->
+  <!-- ============================================================ -->
+  <div class="pin-modal-overlay" id="pinModalOverlay"></div>
+
+  <div class="pin-modal-panel" id="pinModalPanel">
+    <h3 class="pin-modal-title">Name this location</h3>
+    <input type="text" id="pinModalInput" placeholder="e.g. Blue Bottle Coffee" autocomplete="off">
+    <div class="pin-modal-buttons">
+      <button class="button-dark" id="pinModalCancelButton">Cancel</button>
+      <button class="button-rust" id="pinModalSaveButton">Save</button>
+    </div>
+  </div>
+
   <!-- Sets up the connection to our Supabase backend -->
   <script src="supabase-client.js"></script>
 

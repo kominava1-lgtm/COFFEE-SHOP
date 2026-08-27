@@ -140,12 +140,12 @@
             <span class="stat-label">shops mapped</span>
           </div>
           <div class="stat-box">
-            <span class="stat-number">3 min</span>
+            <span class="stat-number">5 min</span>
             <span class="stat-label">avg. walk found</span>
           </div>
           <div class="stat-box">
-            <span class="stat-number">180</span>
-            <span class="stat-label">countries</span>
+            <span class="stat-number" id="cafeCountStat">0</span>
+            <span class="stat-label">cafe detected</span>
           </div>
         </div>
       </div>
@@ -165,8 +165,9 @@
             <svg class="radar-svg" id="radarSvg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
 
               <!-- Two range rings -->
-              <circle class="radar-ring" cx="200" cy="200" r="90"/>
-              <circle class="radar-ring" cx="200" cy="200" r="180"/>
+              <circle class="radar-ring" cx="200" cy="200" r="80"/>
+              <circle class="radar-ring" cx="200" cy="200" r="140"/>
+              <circle class="radar-ring" cx="200" cy="200" r="190"/>
 
               <!-- Cafe dots get added/removed here by script.js -->
               <g id="radarDots"></g>

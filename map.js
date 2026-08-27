@@ -151,15 +151,48 @@ function initializeMap(latitude, longitude, cafeList, zoomLevel, hasRealLocation
    PART 4: Saving and loading "visited" pins (Supabase)
    ----------------------------------------------------- */
 
+// Remembers the coordinates of whatever spot was just clicked,
+// so the modal's Save button knows where to save the pin.
+let pendingPinLat = null;
+let pendingPinLon = null;
+
+const pinModalOverlay = document.getElementById('pinModalOverlay');
+const pinModalPanel = document.getElementById('pinModalPanel');
+const pinModalInput = document.getElementById('pinModalInput');
+const pinModalCancelButton = document.getElementById('pinModalCancelButton');
+const pinModalSaveButton = document.getElementById('pinModalSaveButton');
+
 function handleMapClick(lat, lon) {
-  const cafeName = window.prompt('Name this location (e.g. the cafe you visited):');
+  pendingPinLat = lat;
+  pendingPinLon = lon;
 
-  if (cafeName === null) {
-    return; // they hit Cancel
-  }
-
-  saveVisitedPin(cafeName.trim() || 'Unnamed pin', lat, lon);
+  pinModalInput.value = ''; // clear out whatever was typed last time
+  pinModalOverlay.classList.add('is-open');
+  pinModalPanel.classList.add('is-open');
+  pinModalInput.focus(); // puts the cursor straight into the text box
 }
+
+function closePinModal() {
+  pinModalOverlay.classList.remove('is-open');
+  pinModalPanel.classList.remove('is-open');
+}
+
+pinModalCancelButton.addEventListener('click', closePinModal);
+pinModalOverlay.addEventListener('click', closePinModal);
+
+pinModalSaveButton.addEventListener('click', function () {
+  const cafeName = pinModalInput.value.trim() || 'Unnamed pin';
+  saveVisitedPin(cafeName, pendingPinLat, pendingPinLon);
+  closePinModal();
+});
+
+// Lets someone just press Enter in the text box instead of
+// having to click the Save button every time
+pinModalInput.addEventListener('keydown', function (event) {
+  if (event.key === 'Enter') {
+    pinModalSaveButton.click();
+  }
+});
 
 function saveVisitedPin(cafeName, lat, lon) {
   supabaseClient

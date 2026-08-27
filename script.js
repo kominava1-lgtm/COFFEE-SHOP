@@ -1,3 +1,6 @@
+// Get your own free key at geoapify.com — this one is a placeholder.
+const GEOAPIFY_API_KEY = '3de55e6482c54ff483043085bc107b15';
+
 /* =====================================================
    PART 1: "Use my location" button
    Asks the browser for the user's real GPS location,
@@ -22,52 +25,83 @@ const successButtonContent =
     '<path d="M20 6L9 17l-5-5" stroke="#F3E6CC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
   '</svg> Located';
 
-// Asks OpenStreetMap (via the Overpass API) for cafes, coffee shops,
-// and coffee-serving spots near a point. No API key needed — this
-// service is free and open.
+
 function searchNearbyCoffeeShops(latitude, longitude) {
   const radiusInMeters = 3000; // 3km, matches our requirement
 
-  // Three separate tags can all mean "coffee shop" in OpenStreetMap:
-  // amenity=cafe (the standard cafe tag), shop=coffee (a coffee-focused
-  // shop/roastery), and cuisine=coffee_shop (a place — like a bakery or
-  // fast food spot — that lists coffee as what it serves). We search
-  // for all three, as both nodes (single points) and ways (buildings/areas).
-  const overpassQuery = `
-    [out:json][timeout:25];
-    (
-      node["amenity"="cafe"](around:${radiusInMeters},${latitude},${longitude});
-      way["amenity"="cafe"](around:${radiusInMeters},${latitude},${longitude});
-      node["shop"="coffee"](around:${radiusInMeters},${latitude},${longitude});
-      way["shop"="coffee"](around:${radiusInMeters},${latitude},${longitude});
-      node["cuisine"="coffee_shop"](around:${radiusInMeters},${latitude},${longitude});
-      way["cuisine"="coffee_shop"](around:${radiusInMeters},${latitude},${longitude});
-    );
-    out center;
-  `;
+  // Geoapify's Places API: ask for cafes/coffee shops within a circle
+  // (center point + radius), using our free API key.
+  const geoapifyURL =
+    'https://api.geoapify.com/v2/places' +
+    '?categories=catering.cafe' +
+    '&filter=circle:' + longitude + ',' + latitude + ',' + radiusInMeters +
+    '&bias=proximity:' + longitude + ',' + latitude +
+    '&limit=50' +
+    '&apiKey=' + GEOAPIFY_API_KEY;
 
-  fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    body: overpassQuery
-  })
+  fetch(geoapifyURL)
     .then(function (response) {
       return response.json();
     })
     .then(function (data) {
-      // Nodes have lat/lon directly on them, but ways (buildings/areas)
-      // only get coordinates through the "center" field added by
-      // "out center;" above — so we copy that up to lat/lon for ways,
-      // meaning the rest of the app can treat every result the same way.
-      const coffeeShops = normalizeElementCoordinates(data.elements);
+      const coffeeShops = convertGeoapifyResultsToCafeShape(data.features);
 
       console.log('Found ' + coffeeShops.length + ' coffee shops:', coffeeShops);
-      displayCoffeeShops(coffeeShops);
-      renderRadarCafes(coffeeShops);
+
+      loadVisitedPinsInRange(latitude, longitude, radiusInMeters / 1000).then(function (visitedPins) {
+        const allCafes = coffeeShops.concat(visitedPins);
+        displayCoffeeShops(allCafes);
+        renderRadarCafes(allCafes);
+
+        document.getElementById('cafeCountStat').textContent = allCafes.length;
+
+        // Save this search so it can be restored if the user leaves
+        // this page (e.g. to view the map) and comes back.
+        localStorage.setItem('espressoXpressMapData', JSON.stringify({
+          lat: latitude,
+          lon: longitude,
+          cafes: allCafes
+        }));
+      });
     })
     .catch(function (error) {
-      console.log('Overpass search failed:', error);
+      console.log('Geoapify search failed:', error);
     });
 }
+
+// Fetches every pin saved in Supabase, keeps only the ones within
+// the given radius of the search location, and reshapes each one
+// to look like a normal cafe object — { tags: { name }, lat, lon } —
+// so it can be plotted using the exact same radar-dot code.
+// Also tags each one with isVisited = true, so we can style it
+// differently (see createRadarDot).
+function loadVisitedPinsInRange(latitude, longitude, radiusKm) {
+  return supabaseClient
+    .from('visited_cafes')
+    .select('*')
+    .then(function (result) {
+      if (result.error) {
+        console.log('Could not load visited pins for radar:', result.error.message);
+        return [];
+      }
+
+      return result.data
+        .filter(function (pin) {
+          const distance = calculateDistanceInKm(latitude, longitude, pin.lat, pin.lon);
+          return distance <= radiusKm;
+        })
+        .map(function (pin) {
+          return {
+            tags: { name: pin.cafe_name || 'Unnamed pin' },
+            lat: pin.lat,
+            lon: pin.lon,
+            isVisited: true
+          };
+        });
+    });
+}
+
+
 
 // Ways don't have lat/lon directly — with "out center;", Overpass adds
 // a nested "center": { lat, lon } object instead. This copies that up
@@ -81,6 +115,28 @@ function normalizeElementCoordinates(elements) {
     return element;
   });
 }
+
+// Geoapify returns results in GeoJSON format, which looks very
+// different from Overpass's shape. This converts each Geoapify
+// result into the same { tags: {...}, lat, lon } shape the rest
+// of the app already expects — so nothing else needs to change.
+function convertGeoapifyResultsToCafeShape(features) {
+  return features.map(function (feature) {
+    const properties = feature.properties;
+
+    return {
+      lat: properties.lat,
+      lon: properties.lon,
+      tags: {
+        name: properties.name,
+        opening_hours: properties.opening_hours || null,
+        phone: properties.contact ? properties.contact.phone : null,
+        website: properties.website || null
+      }
+    };
+  });
+}
+
 
 // Runs if the browser successfully gets a location
 function handleLocationSuccess(position) {
@@ -205,9 +261,11 @@ searchAddressButton.addEventListener('click', handleAddressSearch);
 
 const RADAR_CENTER_X = 200;
 const RADAR_CENTER_Y = 200;
-const RADAR_MIN_DISTANCE = 25;      // keeps dots off the user's own pin
-const RADAR_MAX_DISTANCE = 175;     // keeps dots inside the outermost ring
-const RADAR_SEARCH_RADIUS_KM = 3;   // matches the 3km radius used in the Overpass search
+const RADAR_MIN_DISTANCE = 25;       // keeps dots off the user's own pin
+const RADAR_INNER_RING = 80;         // matches the inner <circle> in index.html — represents 1km
+const RADAR_OUTER_RING = 140;        // matches the outer <circle> in index.html — represents 2km
+const RADAR_MAX_DISTANCE = 190;      // keeps dots inside the outermost ring's visible area (slightly less than 180, so dots at 3km don't sit ON the ring line)
+const RADAR_SEARCH_RADIUS_KM = 3;    // matches the 3km radius used in the search
 const RADAR_DOT_RADIUS = 8;         // visual size of each cafe dot
 const RADAR_MIN_DOT_GAP = RADAR_DOT_RADIUS * 2 + 4; // minimum center-to-center distance allowed between two dots
 
@@ -287,7 +345,7 @@ function createRadarDot(cafe, dotX, dotY, randomDelaySeconds) {
   dot.setAttribute('cx', dotX.toFixed(1));
   dot.setAttribute('cy', dotY.toFixed(1));
   dot.setAttribute('r', RADAR_DOT_RADIUS);
-  dot.setAttribute('class', 'radar-cafe-dot');
+  dot.setAttribute('class', cafe.isVisited ? 'radar-cafe-dot radar-cafe-dot-visited' : 'radar-cafe-dot');
   dot.style.animationDelay = randomDelaySeconds + 's';
 
   dot.addEventListener('click', function (event) {
@@ -296,6 +354,30 @@ function createRadarDot(cafe, dotX, dotY, randomDelaySeconds) {
   });
 
   return dot;
+}
+
+
+// Turns a real-world distance (in km) into a position on the radar,
+// using three connected bands instead of one smooth scale — so a
+// cafe's dot always lands inside the ring that matches its true
+// distance (under 1km, 1-2km, or 2-3km), while still shifting a
+// little within that band based on its exact distance.
+function calculateRadarDistance(actualDistanceKm) {
+  if (actualDistanceKm <= 1) {
+    // 0km -> 1km maps onto: center-safe-zone -> inner ring
+    const ratio = actualDistanceKm / 1;
+    return RADAR_MIN_DISTANCE + ratio * (RADAR_INNER_RING - RADAR_MIN_DISTANCE);
+  }
+
+  if (actualDistanceKm <= 2) {
+    // 1km -> 2km maps onto: inner ring -> outer ring
+    const ratio = (actualDistanceKm - 1) / 1;
+    return RADAR_INNER_RING + ratio * (RADAR_OUTER_RING - RADAR_INNER_RING);
+  }
+
+  // 2km -> 3km (clamped) maps onto: outer ring -> radar edge
+  const ratio = Math.min((actualDistanceKm - 2) / 1, 1);
+  return RADAR_OUTER_RING + ratio * (RADAR_MAX_DISTANCE - RADAR_OUTER_RING);
 }
 
 // Takes the full list of cafes found and plots one dot per
@@ -311,12 +393,7 @@ function renderRadarCafes(cafeList) {
 
   cafeList.forEach(function (cafe, index) {
     const actualDistanceKm = calculateDistanceInKm(userLatitude, userLongitude, cafe.lat, cafe.lon);
-
-    // Scale the real-world distance (0 to 3km) onto the radar's
-    // distance range (RADAR_MIN_DISTANCE to RADAR_MAX_DISTANCE).
-    // Clamp at 1 in case a result is right at the radius edge.
-    const distanceRatio = Math.min(actualDistanceKm / RADAR_SEARCH_RADIUS_KM, 1);
-    const radarDistance = RADAR_MIN_DISTANCE + distanceRatio * (RADAR_MAX_DISTANCE - RADAR_MIN_DISTANCE);
+    const radarDistance = calculateRadarDistance(actualDistanceKm);
 
     const chosenAngle = findNonOverlappingAngle(radarDistance, placedPositions);
     const dotX = RADAR_CENTER_X + radarDistance * Math.cos(chosenAngle);
@@ -718,3 +795,40 @@ function goToMapPage() {
 
 document.getElementById('openMapButton').addEventListener('click', goToMapPage);
 document.getElementById('openMapButtonMobile').addEventListener('click', goToMapPage);
+
+
+
+/* =====================================================
+   PART 11: Restore the last search — but only if we got
+   here by navigating (e.g. "Back to search" from the map
+   page), not from a manual page refresh.
+   ===================================================== */
+
+// The browser records exactly how the current page was loaded.
+// "reload" = the user hit refresh; "navigate" = they arrived via
+// a link or a script (like map.js sending them back here);
+// "back_forward" = they used the browser's own Back/Forward buttons.
+const navigationEntries = performance.getEntriesByType('navigation');
+const navigationType = navigationEntries.length > 0 ? navigationEntries[0].type : 'navigate';
+
+if (navigationType === 'reload') {
+  // A real refresh — start fresh, like a brand new visit.
+  localStorage.removeItem('espressoXpressMapData');
+} else {
+  const savedHomeDataText = localStorage.getItem('espressoXpressMapData');
+
+  if (savedHomeDataText !== null) {
+    const savedHomeData = JSON.parse(savedHomeDataText);
+
+    userLatitude = savedHomeData.lat;
+    userLongitude = savedHomeData.lon;
+
+    displayCoffeeShops(savedHomeData.cafes);
+    renderRadarCafes(savedHomeData.cafes);
+    document.getElementById('cafeCountStat').textContent = savedHomeData.cafes.length;
+
+    locateButton.innerHTML = successButtonContent;
+  }
+}
+
+
